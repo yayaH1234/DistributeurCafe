@@ -1,0 +1,103 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity DistributeurCafe is
+    port (
+        clk: in std_logic;  -- Horloge du système
+        reset: in std_logic;  -- Reset du système
+        selection_cafe: in std_logic_vector(2 downto 0);  -- Entrée pour la sélection du type de café
+        piece_inserée: in std_logic_vector(3 downto 0);  -- Entrée pour l'insertion des pièces de monnaie
+        indicateur_pret: out std_logic;  -- Indicateur de disponibilité de la machine
+        etat_piece: out std_logic_vector(1 downto 0);  -- État de la monnaie insérée
+        cafe_delivre: out std_logic  -- Sortie pour indiquer la distribution du café
+    );
+end entity DistributeurCafe;
+
+architecture Comportementale of DistributeurCafe is
+    type type_cafe is (Noire, Expresso, Lait, Italienne, Capucchino);  -- Types de café disponibles
+    signal cafe_actuel: type_cafe := Noire;  -- Café sélectionné par défaut
+    signal prix_cafe: integer range 0 to 200 := 100;  -- Prix du café (en centimes)
+
+    type valeur_piece is (C1, C2, C3, C4);  -- Valeurs des pièces de monnaie
+    signal montant_total_insere: integer range 0 to 1000 := 0;  -- Montant total inséré (en centimes)
+    signal montant_a_rendre: integer range 0 to 1000 := 0;  -- Montant à rendre (en centimes)
+    signal fonds_suffisants: std_logic := '0';  -- Indique si les fonds sont suffisants pour le café
+
+    signal cafe_pret: std_logic := '0';  -- Indicateur de disponibilité du café
+    signal piece_correcte: std_logic := '0';  -- Indicateur si la monnaie insérée est exacte
+
+    constant TEMPS_CAFE: time := 10 ms;  -- Temps de préparation du café (exemple)
+
+begin
+    process(clk, reset)
+    begin
+        if reset = '1' then
+            cafe_actuel <= Noire;
+            montant_total_insere <= 0;
+            montant_a_rendre <= 0;
+            fonds_suffisants <= '0';
+            cafe_pret <= '0';
+            piece_correcte <= '0';
+        elsif rising_edge(clk) then
+            -- Sélection du café
+            case selection_cafe is
+                when "000" =>
+                    cafe_actuel <= Noire;
+                    prix_cafe <= 100;
+                when "001" =>
+                    cafe_actuel <= Expresso;
+                    prix_cafe <= 150;
+                when "010" =>
+                    cafe_actuel <= Lait;
+                    prix_cafe <= 120;
+                when "011" =>
+                    cafe_actuel <= Italienne;
+                    prix_cafe <= 100;
+                when "100" =>
+                    cafe_actuel <= Capucchino;
+                    prix_cafe <= 200;
+                when others =>
+                    null;
+            end case;
+
+            -- Calcul du montant total inséré
+            montant_total_insere <= montant_total_insere + to_integer(unsigned(piece_inserée));
+
+            -- Vérification des fonds suffisants
+            if montant_total_insere >= prix_cafe then
+                fonds_suffisants <= '1';
+            else
+                fonds_suffisants <= '0';
+            end if;
+
+            -- Calcul du montant à rendre
+            if fonds_suffisants = '1' then
+                montant_a_rendre <= montant_total_insere - prix_cafe;
+            else
+                montant_a_rendre <= 0;
+            end if;
+
+            -- Indicateur si la monnaie insérée est exacte
+            if montant_total_insere = prix_cafe then
+                piece_correcte <= '1';
+            else
+                piece_correcte <= '0';
+            end if;
+
+            -- Indicateur de disponibilité du café
+            if fonds_suffisants = '1' then
+                cafe_pret <= '1';
+            else
+                cafe_pret <= '0';
+            end if;
+        end if;
+    end process;
+
+    -- Sortie des indicateurs
+    indicateur_pret <= cafe_pret;
+    cafe_delivre <= '1' when cafe_pret = '1' else '0';
+    etat_piece <= "00" when piece_correcte = '1' else
+                  "01" when fonds_suffisants = '0' else
+                  "10";
+end architecture Comportementale;
